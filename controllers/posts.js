@@ -1,24 +1,33 @@
 const handleError = require('../service/handleError');
 const handleSuccess = require('../service/handleSuccess');
 const Posts = require('../models/postsModel');
+const User = require('../models/usersModel');
 
 const posts = {
   async getPosts(req, res) {
-		console.log(req.query);
-    const allPosts = await Posts.find();
+    const timeSort = req.query.timeSort == "asc" ? "createdAt":"-createdAt"
+    const search = req.query.search !== undefined ? {"content": new RegExp(req.query.search)} : {};
+    const allPosts = await Posts.find(search).populate({
+      path: 'user',
+      select: 'name photo'
+    }).sort(timeSort);
 		handleSuccess(res, allPosts);
   },
   async createdPosts(req, res) {
     try {
-			const { body } = req;
-			if(body.content){
-				const newPosts = await Posts.create({
-						name: body.name,
-						content: body.content,
-						tags: body.tags,
-						type: body.type
-				})
-				handleSuccess(res, newPosts);
+      const { content, image, user } = req.body
+			if(user && content) {
+        let check = await User.findById(user).exec()
+        if(check !== null ){
+          const newPosts = await Posts.create({
+            content: content,
+            image: image,
+            user: user,
+          });
+          handleSuccess(res, newPosts);
+        } else {
+          handleError(res);
+        }
 			} else {
 				handleError(res);
 			}
@@ -48,8 +57,8 @@ const posts = {
 			const data = req.body
 			if(data.content){
 				await Posts.findByIdAndUpdate(findId, data);
-				const posts = await Posts.find({})
-				handleSuccess(res, posts);
+				const patchId = await Posts.find({'_id': paramsId})
+				handleSuccess(res, patchId);
 			} else {
 				handleError(res);
 			}
